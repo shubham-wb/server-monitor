@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Select-String \"types+react\")",
+      "PowerShell(head -20)",
+      "PowerShell(cmd /c \"dir /b C:\\\\Users\\\\sgupt\\\\OneDrive\\\\Documents\\\\projects\\\\server-monitor\\\\node_modules\\\\@types 2>&1\")",
+      "PowerShell(cmd /c \"dir /b C:\\\\Users\\\\sgupt\\\\OneDrive\\\\Documents\\\\projects\\\\server-monitor\\\\node_modules\\\\.pnpm\\\\@jest+types@30.4.1\\\\node_modules 2>&1\")",
+      "PowerShell(cmd /c \"dir /b C:\\\\Users\\\\sgupt\\\\OneDrive\\\\Documents\\\\projects\\\\server-monitor\\\\node_modules\\\\.pnpm\\\\@jest+types@30.4.1\\\\node_modules\\\\@types 2>&1\")",
+      "Bash(Get-Content \"C:\\\\Users\\\\sgupt\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-sgupt-OneDrive-Documents-projects-server-monitor\\\\08888cb4-51c8-4d18-9dff-5767e82ade03\\\\tasks\\\\bmmk10855.output\" -Wait)",
+      "Bash(Select-String -Pattern \"Nest application|Error|error|started|listening|ELIFECYCLE|failed\" --line-buffered)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\sgupt\\OneDrive\\Documents\\projects\\server-monitor\\apps\\nest-app\\.git"
+    ]
+  }
+}
