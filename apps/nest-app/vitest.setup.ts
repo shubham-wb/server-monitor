@@ -1,3 +1,3 @@
 import { mock } from 'vitest-mock-extended';
 
-global.mock = mock;
+(global as typeof globalThis & { mock: typeof mock }).mock = mock;

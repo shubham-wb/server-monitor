@@ -10,19 +10,27 @@ import {
 import { RemoteServersService } from './remote-servers.service';
 import { CreateRemoteServerDto } from './dto/create-remote-server.dto';
 import { UpdateRemoteServerDto } from './dto/update-remote-server.dto';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { ICurrentUser } from '../auth/current-user.interface';
 
 @Controller('remote-servers')
 export class RemoteServersController {
   constructor(private readonly remoteServersService: RemoteServersService) {}
 
   @Post()
-  create(@Body() createRemoteServerDto: CreateRemoteServerDto) {
-    return this.remoteServersService.create(createRemoteServerDto);
+  create(
+    @Body() createRemoteServerDto: CreateRemoteServerDto,
+    @CurrentUser() currentUser: ICurrentUser,
+  ) {
+    return this.remoteServersService.create({
+      ...createRemoteServerDto,
+      ownerId: currentUser.id,
+    });
   }
 
   @Get()
-  findAll() {
-    return this.remoteServersService.findAll();
+  findAll(@CurrentUser() currentUser: ICurrentUser) {
+    return this.remoteServersService.findAll(currentUser.id);
   }
 
   @Get(':id')
