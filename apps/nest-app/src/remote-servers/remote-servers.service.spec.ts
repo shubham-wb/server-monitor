@@ -20,6 +20,7 @@ const mockServer: RemoteServer = {
 };
 
 const mockRepository = {
+  create: vi.fn(),
   save: vi.fn(),
   find: vi.fn(),
   findOneBy: vi.fn(),
@@ -51,15 +52,25 @@ describe('RemoteServersService', () => {
 
   describe('create', () => {
     it('should save and return a new server', async () => {
-      const dto: CreateRemoteServerDto = {
+      const dto: CreateRemoteServerDto & { ownerId: string } = {
         name: 'Test Server',
+        ownerId: 'owner-1',
         config: { host: 'localhost', port: 22 },
       };
+      const entityToSave = {
+        ...dto,
+        status: RemoteServerStatus.UNKNOWN,
+      } as RemoteServer;
+      mockRepository.create.mockReturnValue(entityToSave);
       mockRepository.save.mockResolvedValue(mockServer);
 
       const result = await service.create(dto);
 
-      expect(mockRepository.save).toHaveBeenCalledWith(dto);
+      expect(mockRepository.create).toHaveBeenCalledWith({
+        ...dto,
+        status: RemoteServerStatus.UNKNOWN,
+      });
+      expect(mockRepository.save).toHaveBeenCalledWith(entityToSave);
       expect(result).toEqual(mockServer);
     });
   });

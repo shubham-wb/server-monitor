@@ -5,6 +5,8 @@ import { UsersModule } from './users/users.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RemoteServersModule } from './remote-servers/remote-servers.module';
 import { AuthModule } from './auth/auth.module';
+import { LogSourcesModule } from './log-sources/log-sources.module';
+import { LogAnalysisModule } from './log-analysis/log-analysis.module';
 
 @Module({
   imports: [
@@ -17,6 +19,8 @@ import { AuthModule } from './auth/auth.module';
     UsersModule,
     RemoteServersModule,
     AuthModule,
+    LogSourcesModule,
+    LogAnalysisModule,
   ],
   controllers: [AppController],
   providers: [AppService],
