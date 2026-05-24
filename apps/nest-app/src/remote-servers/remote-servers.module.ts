@@ -8,5 +8,6 @@ import { RemoteServer } from './entities/remote-server.entity';
   imports: [TypeOrmModule.forFeature([RemoteServer])],
   controllers: [RemoteServersController],
   providers: [RemoteServersService],
+  exports: [RemoteServersService],
 })
 export class RemoteServersModule {}

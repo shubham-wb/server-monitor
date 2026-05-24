@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateRemoteServerDto } from './dto/create-remote-server.dto';
 import { UpdateRemoteServerDto } from './dto/update-remote-server.dto';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -30,6 +30,14 @@ export class RemoteServersService {
 
   findOne(id: string) {
     return this.repo.findOneBy({ id });
+  }
+
+  async getById(id: string, ownerId: string) {
+    const remoteServer = await this.repo.findOneBy({ id, ownerId });
+    if (!remoteServer) {
+      throw new NotFoundException('remote server not found');
+    }
+    return remoteServer;
   }
 
   update(id: string, updateRemoteServerDto: UpdateRemoteServerDto) {
