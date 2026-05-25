@@ -1,15 +1,16 @@
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
-  UpdateDateColumn,
   CreateDateColumn,
+  Entity,
   JoinColumn,
-  ManyToOne,
+  OneToMany,
   OneToOne,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { LogSource } from '../../../log-sources/entities/log-source.entity';
 import { RemoteServer } from '../../../remote-servers/entities/remote-server.entity';
+import { Anomaly } from './anomaly.entity';
 
 export enum LogAnalysisJobStatus {
   PENDING = 'pending',
@@ -59,4 +60,7 @@ export class LogAnalysisJob {
   @OneToOne(() => RemoteServer)
   @JoinColumn()
   remoteServer!: RemoteServer;
+
+  @OneToMany(() => Anomaly, (anomaly) => anomaly.logAnalysisJob)
+  anomalies: Anomaly[];
 }
