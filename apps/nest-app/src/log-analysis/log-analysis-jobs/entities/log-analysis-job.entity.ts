@@ -38,10 +38,10 @@ export class LogAnalysisJob {
   @Column({ nullable: true })
   description?: string;
 
-  @Column({ type: 'enum', enum: LogAnalysisJobStatus })
+  @Column({ type: 'simple-enum', enum: LogAnalysisJobStatus })
   status: LogAnalysisJobStatus;
 
-  @Column({ type: 'enum', enum: LogAnalysisJobType })
+  @Column({ type: 'simple-enum', enum: LogAnalysisJobType })
   type!: LogAnalysisJobType;
 
   @Column({ type: 'simple-json', nullable: true })

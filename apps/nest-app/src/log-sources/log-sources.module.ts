@@ -8,7 +8,6 @@ import { RemoteServersModule } from '../remote-servers/remote-servers.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([LogSource]),
-    LogSourcesModule,
     RemoteServersModule,
   ],
   controllers: [LogSourcesController],
