@@ -1,16 +1,24 @@
 import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { LogAnalysisJob } from './log-analysis-job.entity';
 
-enum AnomalySeverity {
+export enum AnomalySeverity {
   LOW = 'low',
   MEDIUM = 'medium',
   HIGH = 'high',
+}
+export enum AnomalyStatus {
+  OPEN = 'open',
+  IN_PROGRESS = 'in_progress',
+  CLOSED = 'closed',
 }
 
 @Entity()
 export class Anomaly {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column()
+  status: AnomalyStatus;
 
   @Column()
   title: string;

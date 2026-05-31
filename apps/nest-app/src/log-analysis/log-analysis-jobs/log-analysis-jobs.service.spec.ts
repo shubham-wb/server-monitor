@@ -20,6 +20,8 @@ import {
   LogAnalysisJobType,
 } from './entities/log-analysis-job.entity';
 import { LogAnalysisJobsService } from './log-analysis-jobs.service';
+import { Anomaly } from './entities/anomaly.entity';
+import { Repository } from 'typeorm';
 
 const OWNER_ID = 'owner-1';
 
@@ -93,6 +95,10 @@ describe('LogAnalysisJobsService', () => {
         {
           provide: RemoteServersService,
           useValue: mockRemoteServersService,
+        },
+        {
+          provide: getRepositoryToken(Anomaly),
+          useValue: mock<Repository<Anomaly>>(),
         },
       ],
     }).compile();
