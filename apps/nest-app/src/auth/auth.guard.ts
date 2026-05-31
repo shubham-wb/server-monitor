@@ -7,6 +7,9 @@ export class AuthGuard implements CanActivate {
   canActivate(
     context: ExecutionContext,
   ): boolean | Promise<boolean> | Observable<boolean> {
+    //TODO : find the bearer token in the request and parse the current user
+    //TODO : In case of API key , use the API key to parse the current user
+
     const request = context.switchToHttp().getRequest<Request>();
 
     const currentUser: ICurrentUser = {

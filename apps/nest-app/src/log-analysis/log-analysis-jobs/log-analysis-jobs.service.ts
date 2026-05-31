@@ -26,6 +26,7 @@ export class LogAnalysisJobsService {
     private repo: Repository<LogAnalysisJob>,
     private logSourcesService: LogSourcesService,
     private remoteServersService: RemoteServersService,
+    @InjectRepository(Anomaly)
     private anomalyRepo: Repository<Anomaly>,
   ) {}
 
