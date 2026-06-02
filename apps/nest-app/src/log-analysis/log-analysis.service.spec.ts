@@ -67,6 +67,7 @@ describe('LogAnalysisService', () => {
 
       expect(mockLogAnalysisJobsService.addAnomaly).toHaveBeenCalledWith(mockJob, {
         title: 'Disk full',
+        description: 'Disk full',
         severity: AnomalySeverity.HIGH,
       });
     });
@@ -79,6 +80,7 @@ describe('LogAnalysisService', () => {
 
       expect(mockLogAnalysisJobsService.addAnomaly).toHaveBeenCalledWith(mockJob, {
         title: 'High memory',
+        description: 'High memory',
         severity: AnomalySeverity.MEDIUM,
       });
     });
@@ -91,6 +93,7 @@ describe('LogAnalysisService', () => {
 
       expect(mockLogAnalysisJobsService.addAnomaly).toHaveBeenCalledWith(mockJob, {
         title: 'Untitled Log Message',
+        description: 'Untitled Log Message',
         severity: AnomalySeverity.MEDIUM,
       });
     });
@@ -103,6 +106,7 @@ describe('LogAnalysisService', () => {
 
       expect(mockLogAnalysisJobsService.addAnomaly).toHaveBeenCalledWith(mockJob, {
         title: 'Something happened',
+        description: 'Something happened',
         severity: AnomalySeverity.MEDIUM,
       });
     });

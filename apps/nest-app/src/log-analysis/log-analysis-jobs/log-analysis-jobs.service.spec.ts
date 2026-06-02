@@ -1,3 +1,4 @@
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   LogSource,
   LogSourceStatus,
@@ -108,6 +109,10 @@ describe('LogAnalysisJobsService', () => {
         {
           provide: getRepositoryToken(Anomaly),
           useValue: mockAnomalyRepository,
+        },
+        {
+          provide: EventEmitter2,
+          useValue: { emit: vi.fn() },
         },
       ],
     }).compile();
