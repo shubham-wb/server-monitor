@@ -20,8 +20,11 @@ import {
   LogAnalysisJobType,
 } from './entities/log-analysis-job.entity';
 import { LogAnalysisJobsService } from './log-analysis-jobs.service';
-import { Anomaly } from './entities/anomaly.entity';
-import { Repository } from 'typeorm';
+import {
+  Anomaly,
+  AnomalySeverity,
+  AnomalyStatus,
+} from './entities/anomaly.entity';
 
 const OWNER_ID = 'owner-1';
 
@@ -69,6 +72,12 @@ const mockRepository = {
   delete: vi.fn(),
 };
 
+const mockAnomalyRepository = {
+  findOne: vi.fn(),
+  create: vi.fn(),
+  save: vi.fn(),
+};
+
 const mockLogSourcesService = {
   findOne: vi.fn(),
 };
@@ -98,7 +107,7 @@ describe('LogAnalysisJobsService', () => {
         },
         {
           provide: getRepositoryToken(Anomaly),
-          useValue: mock<Repository<Anomaly>>(),
+          useValue: mockAnomalyRepository,
         },
       ],
     }).compile();
@@ -290,6 +299,48 @@ describe('LogAnalysisJobsService', () => {
       await expect(service.remove('non-existent', OWNER_ID)).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  describe('addAnomaly', () => {
+    const anomalyInput = {
+      title: 'High CPU Usage',
+      description: 'CPU usage exceeded 90%',
+      severity: AnomalySeverity.HIGH,
+    };
+
+    it('should return without creating or saving when an open or in-progress anomaly exists', async () => {
+      const existingAnomaly = {
+        id: 'anomaly-1',
+        status: AnomalyStatus.OPEN,
+      } as Anomaly;
+      mockAnomalyRepository.findOne.mockResolvedValue(existingAnomaly);
+
+      await service.addAnomaly(mockJob, anomalyInput);
+
+      expect(mockAnomalyRepository.create).not.toHaveBeenCalled();
+      expect(mockAnomalyRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('should create and save an anomaly with correct fields when no active anomaly exists', async () => {
+      const createdAnomaly = {
+        logAnalysisJob: mockJob,
+        status: AnomalyStatus.OPEN,
+        ...anomalyInput,
+      } as unknown as Anomaly;
+      mockAnomalyRepository.findOne.mockResolvedValue(null);
+      mockAnomalyRepository.create.mockReturnValue(createdAnomaly);
+
+      await service.addAnomaly(mockJob, anomalyInput);
+
+      expect(mockAnomalyRepository.create).toHaveBeenCalledWith({
+        logAnalysisJob: mockJob,
+        status: AnomalyStatus.OPEN,
+        title: anomalyInput.title,
+        description: anomalyInput.description,
+        severity: anomalyInput.severity,
+      });
+      expect(mockAnomalyRepository.save).toHaveBeenCalledWith(createdAnomaly);
     });
   });
 });

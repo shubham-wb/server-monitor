@@ -7,6 +7,8 @@ import { RemoteServersModule } from './remote-servers/remote-servers.module';
 import { AuthModule } from './auth/auth.module';
 import { LogSourcesModule } from './log-sources/log-sources.module';
 import { LogAnalysisModule } from './log-analysis/log-analysis.module';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { TicketingModule } from './ticketing/ticketing.module';
 
 @Module({
   imports: [
@@ -21,6 +23,8 @@ import { LogAnalysisModule } from './log-analysis/log-analysis.module';
     AuthModule,
     LogSourcesModule,
     LogAnalysisModule,
+    EventEmitterModule.forRoot(),
+    TicketingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

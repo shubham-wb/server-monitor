@@ -23,6 +23,7 @@ export class LogAnalysisService {
 
       await this.logAnalysisJobService.addAnomaly(job, {
         title: message,
+        description: message,
         severity:
           level === 'critical' ? AnomalySeverity.HIGH : AnomalySeverity.MEDIUM,
       });

@@ -7,7 +7,7 @@ services:
       PORT: 3100
       HTTP_OUTPUT_HOST: host.docker.internal
       HTTP_OUTPUT_PORT: 3000
-      HTTP_OUTPUT_URI: /log-analysis/ingest/job-123
+      HTTP_OUTPUT_URI: /log-analysis/ingest/${LOG_ANALYSIS_JOB_ID}
       HTTP_OUTPUT_TLS: "Off"
 networks:
   log-network:

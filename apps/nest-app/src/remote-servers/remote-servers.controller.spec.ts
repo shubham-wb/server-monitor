@@ -50,29 +50,35 @@ describe('RemoteServersController', () => {
         name: 'Test Server',
         config: { host: 'localhost', port: 22 },
       };
+      const currentUser = { id: 'owner-1' };
       mockService.create.mockResolvedValue(mockServer);
 
-      const result = await controller.create(dto);
+      const result = await controller.create(dto, currentUser as any);
 
-      expect(mockService.create).toHaveBeenCalledWith(dto);
+      expect(mockService.create).toHaveBeenCalledWith({
+        ...dto,
+        ownerId: 'owner-1',
+      });
       expect(result).toEqual(mockServer);
     });
   });
 
   describe('findAll', () => {
     it('should call service.findAll and return array of servers', async () => {
+      const currentUser = { id: 'owner-1' };
       mockService.findAll.mockResolvedValue([mockServer]);
 
-      const result = await controller.findAll();
+      const result = await controller.findAll(currentUser as any);
 
-      expect(mockService.findAll).toHaveBeenCalled();
+      expect(mockService.findAll).toHaveBeenCalledWith('owner-1');
       expect(result).toEqual([mockServer]);
     });
 
     it('should return empty array when no servers exist', async () => {
+      const currentUser = { id: 'owner-1' };
       mockService.findAll.mockResolvedValue([]);
 
-      const result = await controller.findAll();
+      const result = await controller.findAll(currentUser as any);
 
       expect(result).toEqual([]);
     });

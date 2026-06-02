@@ -1,23 +1,21 @@
+import { LogSourcesService } from '@/log-sources/log-sources.service';
+import { RemoteServersService } from '@/remote-servers/remote-servers.service';
 import {
   BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { In, Repository } from 'typeorm';
 import { CreateLogAnalysisJobDto } from './dto/create-log-analysis-job.dto';
 import { UpdateLogAnalysisJobDto } from './dto/update-log-analysis-job.dto';
+import { Anomaly, AnomalyStatus } from './entities/anomaly.entity';
 import {
   LogAnalysisJob,
   LogAnalysisJobStatus,
 } from './entities/log-analysis-job.entity';
-import { In, Repository } from 'typeorm';
-import { InjectRepository } from '@nestjs/typeorm';
-import { LogSourcesService } from '@/log-sources/log-sources.service';
-import { RemoteServersService } from '@/remote-servers/remote-servers.service';
-import {
-  Anomaly,
-  AnomalySeverity,
-  AnomalyStatus,
-} from './entities/anomaly.entity';
+import { EventEmitter2 as EventEmitter } from '@nestjs/event-emitter';
+import { AnomalyCreatedEvent } from '@/shared/events/anomaly.event';
 
 @Injectable()
 export class LogAnalysisJobsService {
@@ -28,6 +26,7 @@ export class LogAnalysisJobsService {
     private remoteServersService: RemoteServersService,
     @InjectRepository(Anomaly)
     private anomalyRepo: Repository<Anomaly>,
+    private eventEmitter: EventEmitter,
   ) {}
 
   async create(props: CreateLogAnalysisJobDto, ownerId: string) {
@@ -90,11 +89,7 @@ export class LogAnalysisJobsService {
       title,
       description,
       severity,
-    }: {
-      title: string;
-      description?: string;
-      severity: AnomalySeverity;
-    },
+    }: Partial<Anomaly> & Pick<Anomaly, 'title' | 'severity' | 'description'>,
   ) {
     //check if the job has an anomaly
     //if yes then ignore
@@ -115,5 +110,10 @@ export class LogAnalysisJobsService {
       severity,
     });
     await this.anomalyRepo.save(anomaly);
+
+    this.eventEmitter.emit(
+      AnomalyCreatedEvent.name,
+      new AnomalyCreatedEvent({ anomaly, job }),
+    );
   }
 }
