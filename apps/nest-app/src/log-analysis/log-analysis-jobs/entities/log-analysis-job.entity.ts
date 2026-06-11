@@ -3,6 +3,7 @@ import {
   CreateDateColumn,
   Entity,
   JoinColumn,
+  ManyToOne,
   OneToMany,
   OneToOne,
   PrimaryGeneratedColumn,
@@ -53,11 +54,11 @@ export class LogAnalysisJob {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @OneToOne(() => LogSource, { nullable: true })
+  @ManyToOne(() => LogSource, { nullable: true })
   @JoinColumn()
   logSource: LogSource;
 
-  @OneToOne(() => RemoteServer)
+  @ManyToOne(() => RemoteServer)
   @JoinColumn()
   remoteServer!: RemoteServer;
 
