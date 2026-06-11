@@ -26,6 +26,7 @@ import {
   AnomalySeverity,
   AnomalyStatus,
 } from './entities/anomaly.entity';
+import { AnomalyCreatedEvent } from '@/shared/events/anomaly.event';
 
 const OWNER_ID = 'owner-1';
 
@@ -61,6 +62,7 @@ const mockJob: LogAnalysisJob = {
   type: LogAnalysisJobType.ONE_TIME,
   logSource: mockLogSource,
   remoteServer: mockRemoteServer,
+  anomalies: [],
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
 };
@@ -87,6 +89,8 @@ const mockRemoteServersService = {
   getById: vi.fn(),
 };
 
+const mockEventEmitter = { emit: vi.fn() };
+
 describe('LogAnalysisJobsService', () => {
   let service: LogAnalysisJobsService;
 
@@ -112,7 +116,7 @@ describe('LogAnalysisJobsService', () => {
         },
         {
           provide: EventEmitter2,
-          useValue: { emit: vi.fn() },
+          useValue: mockEventEmitter,
         },
       ],
     }).compile();
@@ -329,6 +333,7 @@ describe('LogAnalysisJobsService', () => {
 
     it('should create and save an anomaly with correct fields when no active anomaly exists', async () => {
       const createdAnomaly = {
+        id: 'anomaly-1',
         logAnalysisJob: mockJob,
         status: AnomalyStatus.OPEN,
         ...anomalyInput,
@@ -346,6 +351,39 @@ describe('LogAnalysisJobsService', () => {
         severity: anomalyInput.severity,
       });
       expect(mockAnomalyRepository.save).toHaveBeenCalledWith(createdAnomaly);
+    });
+
+    it('should emit AnomalyCreatedEvent with correct payload when anomaly is created', async () => {
+      const createdAnomaly = {
+        id: 'anomaly-1',
+        logAnalysisJob: mockJob,
+        status: AnomalyStatus.OPEN,
+        ...anomalyInput,
+      } as unknown as Anomaly;
+      mockAnomalyRepository.findOne.mockResolvedValue(null);
+      mockAnomalyRepository.create.mockReturnValue(createdAnomaly);
+
+      await service.addAnomaly(mockJob, anomalyInput);
+
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        AnomalyCreatedEvent.name,
+        new AnomalyCreatedEvent({
+          ownerId: mockJob.ownerId,
+          jobId: mockJob.id,
+          anomalyId: createdAnomaly.id,
+        }),
+      );
+    });
+
+    it('should not emit any event when an active anomaly already exists', async () => {
+      mockAnomalyRepository.findOne.mockResolvedValue({
+        id: 'anomaly-existing',
+        status: AnomalyStatus.OPEN,
+      } as Anomaly);
+
+      await service.addAnomaly(mockJob, anomalyInput);
+
+      expect(mockEventEmitter.emit).not.toHaveBeenCalled();
     });
   });
 });

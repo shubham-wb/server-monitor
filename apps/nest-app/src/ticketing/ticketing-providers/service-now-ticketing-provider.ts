@@ -2,12 +2,14 @@ import { Ticket, TicketCreate, TicketStatus } from '../ticketing.types';
 import { ITicketingProvider } from './ticketing-provider.interface';
 
 export class ServiceNowTicketingProvider implements ITicketingProvider {
-  createTicket(ticket?: TicketCreate): Promise<Ticket> {
+  constructor(private readonly config: Record<string, any>) {}
+
+  createTicket(props: TicketCreate): Promise<Ticket> {
     return Promise.resolve({
       id: 'random-id',
-      title: ticket?.title,
-      description: ticket?.description,
-      severity: ticket?.severity,
+      title: props.title,
+      description: props.description,
+      severity: props.severity,
       status: TicketStatus.OPEN,
       createdAt: new Date(),
       updatedAt: new Date(),

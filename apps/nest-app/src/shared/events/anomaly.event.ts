@@ -3,8 +3,9 @@ import { AppEvent } from './app-event';
 import { LogAnalysisJob } from '@/log-analysis/log-analysis-jobs/entities/log-analysis-job.entity';
 
 export interface AnomalyCreatedEventPayload {
-  anomaly: Anomaly;
-  job: LogAnalysisJob;
+  ownerId: string;
+  jobId: string;
+  anomalyId: string;
 }
 
 export class AnomalyCreatedEvent extends AppEvent<AnomalyCreatedEventPayload> {}

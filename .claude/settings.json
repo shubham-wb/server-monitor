@@ -12,7 +12,8 @@
       "Bash(pnpm test *)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "Read(//c/Users/sgupt/OneDrive/Documents/projects/**)"
+      "Read(//c/Users/sgupt/OneDrive/Documents/projects/**)",
+      "Bash(git --no-pager diff HEAD -- src/shared/events/anomaly.event.ts src/ticketing/ticketing.service.ts src/ticketing/ticketing-providers/ticketing-provider.factory.ts src/ticketing/ticketing-providers/service-now-ticketing-provider.ts src/log-analysis/log-analysis-jobs/log-analysis-jobs.service.ts)"
     ],
     "additionalDirectories": [
       "c:\\Users\\sgupt\\OneDrive\\Documents\\projects\\server-monitor\\apps\\nest-app\\.git"

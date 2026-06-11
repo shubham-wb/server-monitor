@@ -4,11 +4,11 @@ import { ServiceNowTicketingProvider } from './service-now-ticketing-provider';
 @Injectable()
 export class TicketingProviderFactory {
   create(config: Record<string, any>) {
-    switch (config.provider) {
+    switch (config.type) {
       case ServiceNowTicketingProvider.name:
         return new ServiceNowTicketingProvider(config);
       default:
-        throw new Error(`Unsupported ticketing provider: ${config.provider}`);
+        throw new Error(`Unsupported ticketing provider: ${config.type}`);
     }
   }
 }
