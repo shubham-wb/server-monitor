@@ -18,7 +18,7 @@ export class CreateLogAnalysisJobDto {
 
   @IsString()
   @IsOptional()
-  logSourceId: string;
+  logSourceId?: string;
 
   @IsString()
   remoteServerId: string;

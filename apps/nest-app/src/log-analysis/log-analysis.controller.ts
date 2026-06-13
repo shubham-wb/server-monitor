@@ -1,4 +1,4 @@
-import { Controller, Param, Post, Body } from '@nestjs/common';
+import { Controller, Param, Post, Body, HttpCode } from '@nestjs/common';
 import { ApiBody } from '@nestjs/swagger';
 import { LogAnalysisService } from './log-analysis.service';
 import { CurrentUser } from '@/auth/current-user.decorator';
@@ -9,6 +9,7 @@ export class LogAnalysisController {
   constructor(private readonly logAnalysisService: LogAnalysisService) {}
 
   @ApiBody({ type: Array<Record<string, any>> })
+  @HttpCode(200)
   @Post('ingest/:jobId')
   ingestLogs(
     @Param('jobId') jobId: string,
