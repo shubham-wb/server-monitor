@@ -9,6 +9,7 @@ import { LogSourcesModule } from './log-sources/log-sources.module';
 import { LogAnalysisModule } from './log-analysis/log-analysis.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TicketingModule } from './ticketing/ticketing.module';
+import { DatabaseModule } from './database/database.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { TicketingModule } from './ticketing/ticketing.module';
     LogAnalysisModule,
     EventEmitterModule.forRoot(),
     TicketingModule,
+    DatabaseModule,
   ],
   controllers: [AppController],
   providers: [AppService],

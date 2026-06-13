@@ -17,7 +17,7 @@ export class Anomaly {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'simple-enum', enum: AnomalyStatus })
   status: AnomalyStatus;
 
   @Column()
@@ -26,7 +26,7 @@ export class Anomaly {
   @Column({ nullable: true })
   description: string;
 
-  @Column()
+  @Column({ type: 'simple-enum', enum: AnomalySeverity })
   severity: AnomalySeverity;
 
   @Column({ type: 'simple-json', nullable: true })

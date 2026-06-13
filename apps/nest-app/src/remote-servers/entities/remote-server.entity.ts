@@ -30,7 +30,7 @@ export class RemoteServer {
   @Column({ type: 'simple-json' })
   config: Record<string, any>;
 
-  @Column()
+  @Column({ type: 'simple-enum', enum: RemoteServerStatus })
   status: RemoteServerStatus;
 
   @CreateDateColumn()
