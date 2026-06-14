@@ -12,6 +12,7 @@ export enum TicketSeverity {
 }
 
 export interface TicketCreate {
+  anomalyId?: string;
   title: string;
   description?: string;
   severity: TicketSeverity;

@@ -8,9 +8,10 @@ import {
   AnomalyStatus,
 } from '@/log-analysis/log-analysis-jobs/entities/anomaly.entity';
 import { LogAnalysisJobsService } from '@/log-analysis/log-analysis-jobs/log-analysis-jobs.service';
-
+import { Logger } from '@nestjs/common';
 @Injectable()
 export class TicketingService {
+  private readonly logger = new Logger(TicketingService.name);
   constructor(
     private readonly ticketingProviderFactory: TicketingProviderFactory,
     private readonly logAnalysisJobsService: LogAnalysisJobsService,
@@ -19,30 +20,43 @@ export class TicketingService {
   @OnEvent(AnomalyCreatedEvent.name)
   async handleAnomalyCreatedEvent(event: AnomalyCreatedEvent) {
     const { anomalyId, jobId, ownerId } = event.payload;
+    try {
+      const providerConfig =
+        await this.logAnalysisJobsService.getTicketingSystemConfig(jobId);
 
-    const providerConfig =
-      await this.logAnalysisJobsService.getTicketingSystemConfig(jobId);
+      if (!providerConfig?.type) {
+        return;
+      }
 
-    if (!providerConfig?.type) {
-      return;
+      const anomaly = await this.logAnalysisJobsService.getAnomaly(
+        anomalyId,
+        ownerId,
+      );
+
+      if (!anomaly || anomaly.status !== AnomalyStatus.OPEN) {
+        return;
+      }
+
+      const provider = this.ticketingProviderFactory.create(providerConfig);
+
+      const ticket = await provider.createTicket({
+        title: anomaly.title,
+        description: anomaly.description,
+        severity: this.mapAnomalyToTicketSeverity(anomaly.severity),
+        anomalyId: anomaly.id,
+      });
+
+      await this.logAnalysisJobsService.setAnomalyTicketInfo(
+        anomaly.id,
+        ownerId,
+        { ticketId: ticket.id, status: ticket.status },
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to create ticket for anomaly ${anomalyId} in (job ${jobId}):`,
+        error instanceof Error ? error.stack : String(error),
+      );
     }
-
-    const provider = this.ticketingProviderFactory.create(providerConfig);
-
-    const anomaly = await this.logAnalysisJobsService.getAnomaly(
-      anomalyId,
-      ownerId,
-    );
-
-    if (!anomaly || anomaly.status !== AnomalyStatus.OPEN) {
-      return;
-    }
-
-    return provider.createTicket({
-      title: anomaly.title,
-      description: anomaly.description,
-      severity: this.mapAnomalyToTicketSeverity(anomaly.severity),
-    });
   }
 
   private mapAnomalyToTicketSeverity(

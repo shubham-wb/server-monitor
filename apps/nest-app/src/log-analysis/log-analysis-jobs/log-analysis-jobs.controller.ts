@@ -12,6 +12,7 @@ import { CreateLogAnalysisJobDto } from './dto/create-log-analysis-job.dto';
 import { UpdateLogAnalysisJobDto } from './dto/update-log-analysis-job.dto';
 import type { ICurrentUser } from '@/auth/current-user.interface';
 import { CurrentUser } from '@/auth/current-user.decorator';
+import { UpdateAnomalyDto } from './dto/update-anomaly.dto';
 
 @Controller('log-analysis-jobs')
 export class LogAnalysisJobsController {
@@ -38,6 +39,42 @@ export class LogAnalysisJobsController {
   @Get(':id')
   findOne(@Param('id') id: string, @CurrentUser() currentUser: ICurrentUser) {
     return this.logAnalysisJobsService.findOne(id, currentUser.id);
+  }
+
+  @Get(':jobId/anomalies')
+  listAnomalies(
+    @Param('jobId') jobId: string,
+    @CurrentUser() currentUser: ICurrentUser,
+  ) {
+    return this.logAnalysisJobsService.listAnomalies(jobId, currentUser.id);
+  }
+
+  @Get(':jobId/anomalies/:id')
+  getAnomaly(
+    @Param('jobId') jobId: string,
+    @Param('id') id: string,
+    @CurrentUser() currentUser: ICurrentUser,
+  ) {
+    return this.logAnalysisJobsService.getAnomalyForJob(
+      jobId,
+      id,
+      currentUser.id,
+    );
+  }
+
+  @Patch(':jobId/anomalies/:id')
+  updateAnomaly(
+    @Param('jobId') jobId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateAnomalyDto,
+    @CurrentUser() currentUser: ICurrentUser,
+  ) {
+    return this.logAnalysisJobsService.updateAnomalyStatus(
+      jobId,
+      id,
+      currentUser.id,
+      dto.status,
+    );
   }
 
   @Patch(':id')

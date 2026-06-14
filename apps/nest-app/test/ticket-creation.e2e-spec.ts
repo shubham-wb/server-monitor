@@ -3,7 +3,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
 import { App } from 'supertest/types';
 import request from 'supertest';
-import { mock, type MockProxy } from 'vitest-mock-extended';
 
 import { AppModule } from '../src/app.module';
 import { resetDatabase } from './test-utils';
@@ -12,32 +11,18 @@ import { DatabaseModule } from '@/database/database.module';
 import { CreateRemoteServerDto } from '@/remote-servers/dto/create-remote-server.dto';
 import { CreateLogAnalysisJobDto } from '@/log-analysis/log-analysis-jobs/dto/create-log-analysis-job.dto';
 import { LogAnalysisJobType } from '@/log-analysis/log-analysis-jobs/entities/log-analysis-job.entity';
-import { TicketingProviderFactory } from '@/ticketing/ticketing-providers/ticketing-provider.factory';
-import { ITicketingProvider } from '@/ticketing/ticketing-providers/ticketing-provider.interface';
 
 describe('Ticket Creation (e2e)', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
   let moduleFixture: TestingModule;
-  let ticketingProviderFactory: MockProxy<TicketingProviderFactory>;
-  let ticketProvider: MockProxy<ITicketingProvider>;
 
   beforeEach(async () => {
-    ticketingProviderFactory = mock<TicketingProviderFactory>();
-    ticketProvider = mock<ITicketingProvider>();
-    ticketingProviderFactory.create.mockReturnValue(
-      ticketProvider as unknown as ReturnType<
-        TicketingProviderFactory['create']
-      >,
-    );
-
     moduleFixture = await Test.createTestingModule({
       imports: [AppModule],
     })
       .overrideModule(DatabaseModule)
       .useModule(DatabaseTestModule)
-      .overrideProvider(TicketingProviderFactory)
-      .useValue(ticketingProviderFactory)
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -51,7 +36,7 @@ describe('Ticket Creation (e2e)', () => {
   });
 
   describe('ticket creation', () => {
-    it('should create a ticket', async () => {
+    it('should persist a ticket and reopen the loop after the anomaly is closed', async () => {
       // create a remote server
       const createRemoteServerDto: CreateRemoteServerDto = {
         name: 'test-remote-server',
@@ -67,14 +52,15 @@ describe('Ticket Creation (e2e)', () => {
 
       const remoteServerId = (remoteServerResponse.body as { id: string }).id;
 
-      // create a job with a ticketing system configured so anomalies raise
-      // tickets (the listener bails out early when no provider is configured)
+      // create a job pointed at the real internal ticketing provider so
+      // anomalies raise persisted tickets (the listener bails out early when
+      // no provider is configured)
       const createLogAnalysisJobDto: CreateLogAnalysisJobDto = {
         name: 'test-log-analysis-job',
         type: LogAnalysisJobType.RECURRING,
         description: 'test-log-analysis-job-description',
         remoteServerId,
-        ticketingSystemConfig: { type: 'ServiceNowTicketingProvider' },
+        ticketingSystemConfig: { type: 'InternalTicketingProvider' },
       };
 
       const logAnalysisJobResponse = await request(app.getHttpServer())
@@ -84,33 +70,63 @@ describe('Ticket Creation (e2e)', () => {
 
       const jobId = (logAnalysisJobResponse.body as { id: string }).id;
 
-      // send error logs to the job
-      const errorLogs = [
-        {
-          message: 'test-error-log',
-          level: 'error',
-        },
-      ];
-
+      // send an error log to the job
       await request(app.getHttpServer())
         .post(`/log-analysis/ingest/${jobId}`)
-        .send(errorLogs)
+        .send([{ message: 'test-error-log', level: 'error' }])
         .expect(200);
 
       // Ticket creation runs in an async AnomalyCreated event listener that the
-      // ingest request does not await, so poll until the provider is invoked.
+      // ingest request does not await, so poll until the ticket is persisted.
+      let tickets: Array<{ id: string; title: string; description: string }> =
+        [];
       await vi.waitFor(
-        () => {
-          expect(ticketProvider.createTicket.mock.calls).toHaveLength(1);
+        async () => {
+          const res = await request(app.getHttpServer())
+            .get('/tickets')
+            .expect(200);
+          tickets = res.body;
+          expect(tickets).toHaveLength(1);
         },
         { timeout: 5000 },
       );
 
-      expect(ticketProvider.createTicket.mock.calls[0][0]).toEqual(
+      // the persisted ticket carries the anomaly's title/description
+      expect(tickets[0]).toEqual(
         expect.objectContaining({
           title: expect.stringContaining('test-error-log'),
           description: expect.stringContaining('test-error-log'),
         }),
+      );
+
+      // close the open anomaly so the dedupe gate reopens
+      const anomalies = (
+        await request(app.getHttpServer())
+          .get(`/log-analysis-jobs/${jobId}/anomalies`)
+          .expect(200)
+      ).body as Array<{ id: string }>;
+
+      expect(anomalies).toHaveLength(1);
+
+      await request(app.getHttpServer())
+        .patch(`/log-analysis-jobs/${jobId}/anomalies/${anomalies[0].id}`)
+        .send({ status: 'closed' })
+        .expect(200);
+
+      // a second error now raises a fresh anomaly + ticket
+      await request(app.getHttpServer())
+        .post(`/log-analysis/ingest/${jobId}`)
+        .send([{ message: 'second-error-log', level: 'error' }])
+        .expect(200);
+
+      await vi.waitFor(
+        async () => {
+          const res = await request(app.getHttpServer())
+            .get('/tickets')
+            .expect(200);
+          expect(res.body).toHaveLength(2); // gate reopened → fresh ticket
+        },
+        { timeout: 5000 },
       );
     });
   });

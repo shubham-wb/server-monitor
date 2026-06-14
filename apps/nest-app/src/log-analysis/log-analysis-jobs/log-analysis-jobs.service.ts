@@ -141,4 +141,43 @@ export class LogAnalysisJobsService {
       }),
     );
   }
+
+  listAnomalies(jobId: string, ownerId: string) {
+    return this.anomalyRepo.find({
+      where: { logAnalysisJob: { id: jobId, ownerId } },
+    });
+  }
+
+  getAnomalyForJob(jobId: string, anomalyId: string, ownerId: string) {
+    return this.anomalyRepo.findOne({
+      where: { id: anomalyId, logAnalysisJob: { id: jobId, ownerId } },
+    });
+  }
+
+  async updateAnomalyStatus(
+    jobId: string,
+    anomalyId: string,
+    ownerId: string,
+    status: AnomalyStatus,
+  ) {
+    const anomaly = await this.getAnomalyForJob(jobId, anomalyId, ownerId);
+    if (!anomaly) {
+      throw new NotFoundException('Anomaly not found');
+    }
+    anomaly.status = status;
+    return this.anomalyRepo.save(anomaly);
+  }
+
+  async setAnomalyTicketInfo(
+    anomalyId: string,
+    ownerId: string,
+    ticketInfo: Record<string, any>,
+  ) {
+    const anomaly = await this.getAnomaly(anomalyId, ownerId);
+    if (!anomaly) {
+      throw new NotFoundException('Anomaly not found');
+    }
+    anomaly.ticketInfo = ticketInfo;
+    return this.anomalyRepo.save(anomaly);
+  }
 }
