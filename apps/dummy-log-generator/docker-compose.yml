@@ -9,6 +9,8 @@ services:
       HTTP_OUTPUT_PORT: 3000
       HTTP_OUTPUT_URI: /log-analysis/ingest/${LOG_ANALYSIS_JOB_ID}
       HTTP_OUTPUT_TLS: "Off"
+      INGEST_KEY: ${INGEST_KEY}
+
 networks:
   log-network:
     driver: bridge

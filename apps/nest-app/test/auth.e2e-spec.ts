@@ -6,6 +6,7 @@ import request from 'supertest';
 import { AppModule } from './../src/app.module';
 import { DatabaseModule } from '@/database/database.module';
 import { DatabaseTestModule } from '@/database/database-test.module';
+import { OPERATOR_USER } from '@/auth/auth.constants';
 import { resetDatabase } from './test-utils';
 
 describe('AuthController (e2e)', () => {
@@ -13,13 +14,7 @@ describe('AuthController (e2e)', () => {
   let dataSource: DataSource;
   let moduleFixture: TestingModule;
 
-  // The AuthGuard currently injects this default user on every request.
-  // Bearer-token / API-key parsing is still a TODO in the guard.
-  const DEFAULT_USER = {
-    id: 'default-user-1',
-    name: 'Default User 1',
-    email: 'default-user-1@example.com',
-  };
+  const API_KEY = process.env.API_KEY as string;
 
   beforeEach(async () => {
     moduleFixture = await Test.createTestingModule({
@@ -35,36 +30,29 @@ describe('AuthController (e2e)', () => {
   });
 
   afterEach(async () => {
-    // Reset the database so each test starts from a clean schema.
     await resetDatabase(dataSource);
     await app.close();
   });
 
   describe('GET /auth/me', () => {
-    it('returns the current authenticated user', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/auth/me')
-        .expect(200);
-
-      expect(response.body).toEqual(DEFAULT_USER);
+    it('returns 401 without a key', async () => {
+      await request(app.getHttpServer()).get('/auth/me').expect(401);
     });
 
-    it('resolves a user even without an Authorization header', async () => {
-      // The guard authenticates every request for now, so the endpoint is
-      // reachable without credentials.
-      const response = await request(app.getHttpServer()).get('/auth/me');
-
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual(DEFAULT_USER);
+    it('returns 401 with an invalid key', async () => {
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Authorization', 'Bearer wrong-key')
+        .expect(401);
     });
 
-    it('ignores a provided bearer token and still returns the default user', async () => {
+    it('returns the operator user with a valid key', async () => {
       const response = await request(app.getHttpServer())
         .get('/auth/me')
-        .set('Authorization', 'Bearer some-token')
+        .set('Authorization', `Bearer ${API_KEY}`)
         .expect(200);
 
-      expect(response.body).toEqual(DEFAULT_USER);
+      expect(response.body).toEqual(OPERATOR_USER);
     });
   });
 });

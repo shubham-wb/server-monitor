@@ -16,7 +16,8 @@ describe('Ticket Creation (e2e)', () => {
   let app: INestApplication<App>;
   let dataSource: DataSource;
   let moduleFixture: TestingModule;
-
+  const API_KEY = process.env.API_KEY as string;
+  const INGEST_KEY = process.env.INGEST_KEY as string;
   beforeEach(async () => {
     moduleFixture = await Test.createTestingModule({
       imports: [AppModule],
@@ -47,6 +48,7 @@ describe('Ticket Creation (e2e)', () => {
 
       const remoteServerResponse = await request(app.getHttpServer())
         .post('/remote-servers')
+        .set('Authorization', `Bearer ${API_KEY}`)
         .send(createRemoteServerDto)
         .expect(201);
 
@@ -63,16 +65,18 @@ describe('Ticket Creation (e2e)', () => {
         ticketingSystemConfig: { type: 'InternalTicketingProvider' },
       };
 
+      // create the job  (operator key)
       const logAnalysisJobResponse = await request(app.getHttpServer())
         .post('/log-analysis-jobs')
+        .set('Authorization', `Bearer ${API_KEY}`)
         .send(createLogAnalysisJobDto)
         .expect(201);
 
       const jobId = (logAnalysisJobResponse.body as { id: string }).id;
 
-      // send an error log to the job
       await request(app.getHttpServer())
         .post(`/log-analysis/ingest/${jobId}`)
+        .set('Authorization', `Bearer ${INGEST_KEY}`)
         .send([{ message: 'test-error-log', level: 'error' }])
         .expect(200);
 
@@ -84,6 +88,7 @@ describe('Ticket Creation (e2e)', () => {
         async () => {
           const res = await request(app.getHttpServer())
             .get('/tickets')
+            .set('Authorization', `Bearer ${API_KEY}`)
             .expect(200);
           tickets = res.body;
           expect(tickets).toHaveLength(1);
@@ -103,6 +108,7 @@ describe('Ticket Creation (e2e)', () => {
       const anomalies = (
         await request(app.getHttpServer())
           .get(`/log-analysis-jobs/${jobId}/anomalies`)
+          .set('Authorization', `Bearer ${API_KEY}`)
           .expect(200)
       ).body as Array<{ id: string }>;
 
@@ -110,12 +116,14 @@ describe('Ticket Creation (e2e)', () => {
 
       await request(app.getHttpServer())
         .patch(`/log-analysis-jobs/${jobId}/anomalies/${anomalies[0].id}`)
+        .set('Authorization', `Bearer ${API_KEY}`)
         .send({ status: 'closed' })
         .expect(200);
 
       // a second error now raises a fresh anomaly + ticket
       await request(app.getHttpServer())
         .post(`/log-analysis/ingest/${jobId}`)
+        .set('Authorization', `Bearer ${INGEST_KEY}`)
         .send([{ message: 'second-error-log', level: 'error' }])
         .expect(200);
 
@@ -123,6 +131,7 @@ describe('Ticket Creation (e2e)', () => {
         async () => {
           const res = await request(app.getHttpServer())
             .get('/tickets')
+            .set('Authorization', `Bearer ${API_KEY}`)
             .expect(200);
           expect(res.body).toHaveLength(2); // gate reopened → fresh ticket
         },

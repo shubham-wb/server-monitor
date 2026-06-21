@@ -42,10 +42,12 @@ const mockTicketingProviderFactory = {
 
 const getTicketingSystemConfigMock = vi.fn();
 const getAnomalyMock = vi.fn();
+const setAnomalyTicketInfoMock = vi.fn();
 
 const mockLogAnalysisJobsService = {
   getTicketingSystemConfig: getTicketingSystemConfigMock,
   getAnomaly: getAnomalyMock,
+  setAnomalyTicketInfo: setAnomalyTicketInfoMock,
 };
 
 function makeAnomaly(overrides: Partial<Anomaly> = {}): Anomaly {
@@ -108,6 +110,7 @@ describe('TicketingService', () => {
         title: 'Test Anomaly',
         description: 'An anomaly was detected',
         severity: TicketSeverity.HIGH,
+        anomalyId: 'anomaly-1',
       });
     });
 
@@ -191,10 +194,14 @@ describe('TicketingService', () => {
       );
     });
 
-    it('returns the ticket created by the provider', async () => {
-      const result = await service.handleAnomalyCreatedEvent(event);
+    it('persists the created ticket back onto the anomaly', async () => {
+      await service.handleAnomalyCreatedEvent(event);
 
-      expect(result).toEqual(mockTicket);
+      expect(setAnomalyTicketInfoMock).toHaveBeenCalledWith(
+        'anomaly-1',
+        'owner-1',
+        { ticketId: mockTicket.id, status: mockTicket.status },
+      );
     });
   });
 });

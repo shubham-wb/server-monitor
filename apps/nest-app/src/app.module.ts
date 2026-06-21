@@ -15,7 +15,7 @@ import { DatabaseModule } from './database/database.module';
   imports: [
     TypeOrmModule.forRoot({
       type: 'better-sqlite3',
-      database: 'db.sqlite',
+      database: process.env.DB_PATH ?? 'db.sqlite',
       autoLoadEntities: true,
       synchronize: true,
     }),

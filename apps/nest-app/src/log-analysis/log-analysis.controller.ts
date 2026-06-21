@@ -1,13 +1,15 @@
-import { Controller, Param, Post, Body, HttpCode } from '@nestjs/common';
-import { ApiBody } from '@nestjs/swagger';
+import { Body, Controller, HttpCode, Param, Post } from '@nestjs/common';
 import { LogAnalysisService } from './log-analysis.service';
+import { ApiBody } from '@nestjs/swagger';
 import { CurrentUser } from '@/auth/current-user.decorator';
-import type { ICurrentUser } from '@/auth/current-user.interface';
+import { ICurrentUser } from '@/auth/current-user.interface';
+import { IngestAuth } from '@/auth/auth.decorator';
 
 @Controller('log-analysis')
 export class LogAnalysisController {
   constructor(private readonly logAnalysisService: LogAnalysisService) {}
 
+  @IngestAuth()
   @ApiBody({ type: Array<Record<string, any>> })
   @HttpCode(200)
   @Post('ingest/:jobId')
