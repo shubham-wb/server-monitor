@@ -2,7 +2,7 @@ import { Body, Controller, HttpCode, Param, Post } from '@nestjs/common';
 import { LogAnalysisService } from './log-analysis.service';
 import { ApiBody } from '@nestjs/swagger';
 import { CurrentUser } from '@/auth/current-user.decorator';
-import { ICurrentUser } from '@/auth/current-user.interface';
+import type { ICurrentUser } from '@/auth/current-user.interface';
 import { IngestAuth } from '@/auth/auth.decorator';
 
 @Controller('log-analysis')

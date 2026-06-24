@@ -1,6 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { CurrentUser } from './current-user.decorator';
-import { ICurrentUser } from './current-user.interface';
+import type { ICurrentUser } from './current-user.interface';
 
 @Controller('auth')
 export class AuthController {
