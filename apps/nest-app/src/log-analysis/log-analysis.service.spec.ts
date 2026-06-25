@@ -10,6 +10,7 @@ const mockJob = { id: 'job-1', ownerId: 'owner-1' } as LogAnalysisJob;
 const mockLogAnalysisJobsService = {
   findOne: vi.fn(),
   addAnomaly: vi.fn(),
+  markRunning: vi.fn(),
 };
 
 describe('LogAnalysisService', () => {
@@ -42,6 +43,18 @@ describe('LogAnalysisService', () => {
 
       expect(mockLogAnalysisJobsService.findOne).toHaveBeenCalledWith('missing-job', 'owner-1');
       expect(mockLogAnalysisJobsService.addAnomaly).not.toHaveBeenCalled();
+      expect(mockLogAnalysisJobsService.markRunning).not.toHaveBeenCalled();
+    });
+
+    it('marks the job running on ingest', async () => {
+      mockLogAnalysisJobsService.findOne.mockResolvedValue(mockJob);
+      mockLogAnalysisJobsService.addAnomaly.mockResolvedValue(undefined);
+
+      await service.ingestLogs('job-1', 'owner-1', [
+        { message: 'test', level: 'error' },
+      ]);
+
+      expect(mockLogAnalysisJobsService.markRunning).toHaveBeenCalledWith(mockJob);
     });
 
     it('calls addAnomaly once for each log entry', async () => {

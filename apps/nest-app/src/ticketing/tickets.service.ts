@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Ticket } from './entities/ticket.entity';
+import { PaginationQueryDto } from '@/shared/dto/pagination-query.dto';
+import { paginate, PaginatedResult } from '@/shared/dto/paginated-result';
 
 @Injectable()
 export class TicketsService {
@@ -10,8 +12,11 @@ export class TicketsService {
     private readonly ticketRepo: Repository<Ticket>,
   ) {}
 
-  findAll(ownerId: string) {
-    return this.ticketRepo.find({
+  async findAll(
+    ownerId: string,
+    { page, limit }: PaginationQueryDto,
+  ): Promise<PaginatedResult<Ticket>> {
+    const [data, total] = await this.ticketRepo.findAndCount({
       where: {
         anomaly: {
           logAnalysisJob: {
@@ -19,7 +24,11 @@ export class TicketsService {
           },
         },
       },
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
+    return paginate(data, total, { page, limit });
   }
 
   findOne(id: string, ownerId: string) {

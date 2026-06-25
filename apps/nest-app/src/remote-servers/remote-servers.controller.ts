@@ -12,7 +12,10 @@ import { CreateRemoteServerDto } from './dto/create-remote-server.dto';
 import { UpdateRemoteServerDto } from './dto/update-remote-server.dto';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { ICurrentUser } from '../auth/current-user.interface';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('remote-servers')
+@ApiBearerAuth()
 @Controller('remote-servers')
 export class RemoteServersController {
   constructor(private readonly remoteServersService: RemoteServersService) {}

@@ -12,7 +12,10 @@ import { CreateLogSourceDto } from './dto/create-log-source.dto';
 import { UpdateLogSourceDto } from './dto/update-log-source.dto';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { ICurrentUser } from '../auth/current-user.interface';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('log-sources')
+@ApiBearerAuth()
 @Controller('log-sources')
 export class LogSourcesController {
   constructor(private readonly logSourcesService: LogSourcesService) {}

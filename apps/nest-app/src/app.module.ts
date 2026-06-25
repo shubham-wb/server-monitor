@@ -17,6 +17,11 @@ import { DatabaseModule } from './database/database.module';
       type: 'better-sqlite3',
       database: process.env.DB_PATH ?? 'db.sqlite',
       autoLoadEntities: true,
+      // MVP choice: auto-create the schema from entities on boot. Convenient for
+      // a single-tenant SQLite dev/demo deploy, but it can drop/alter columns on
+      // entity changes. Migrations are a post-MVP concern (see MVP_PLAN.md M2.3).
+      // Before any multi-instance / data-bearing deploy, set this to false and
+      // generate migrations.
       synchronize: true,
     }),
     UsersModule,

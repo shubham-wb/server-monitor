@@ -32,7 +32,7 @@ server-monitor/
 
 - Creates the Nest app and listens on `process.env.PORT ?? 3000`.
 - **Swagger** docs served at `GET /api` ("Server Monitor API").
-- A **global `ValidationPipe`** is applied, so all `class-validator`-decorated DTOs are enforced on incoming requests.
+- A **global `ValidationPipe({ transform: true })`** is applied, so DTOs are enforced and query params (e.g. pagination) are coerced to their typed values.
 
 ### 2.2 Root module (`src/app.module.ts`)
 
@@ -41,17 +41,17 @@ server-monitor/
 - Imports every feature module: Users, RemoteServers, Auth, LogSources, LogAnalysis, Ticketing.
 - `AppController` exposes a single `GET /` → `"Hello World!"` health/sanity endpoint.
 
-### 2.3 Auth (`src/auth/`) — **stub**
+### 2.3 Auth (`src/auth/`) — **real API-key auth (single-tenant)**
 
-- **`AuthGuard`** is registered as a **global guard** (provider token `APP_GUARD`). It runs on every request, but currently does **not** validate anything — it injects a hardcoded user onto the request:
-  ```ts
-  { id: 'default-user-1', name: 'Default User 1', email: 'default-user-1@example.com' }
-  ```
-  The code carries `TODO`s to parse a bearer token and/or API key later.
+- **`AuthGuard`** is the global guard (`APP_GUARD`). It reads route metadata to
+  pick a credential: operator key (`API_KEY`) by default, log-shipper key
+  (`INGEST_KEY`) for `@IngestAuth()` routes, or none for `@Public()` routes.
+  Keys are compared in constant time; the guard **fails closed** (401) if no key
+  is configured. On success it attaches a single fixed operator user, so all
+  owner-scoped data stays under one tenant.
+- **`@Public()`** marks health; **`@IngestAuth()`** marks the ingest endpoint.
 - **`@CurrentUser()`** param decorator reads `request.user` (set by the guard) and hands it to controllers.
-- `AuthService` and `AuthController` are **empty placeholders**.
-
-**Net effect:** there is no real authentication. Every request is treated as the same fake user, so all "owner-scoped" data is effectively scoped to `default-user-1`.
+- Keys come from env / `.env` (see `.env.example`); nothing is hardcoded.
 
 ### 2.4 Users (`src/users/`) — working CRUD
 
@@ -116,14 +116,16 @@ This is the heart of the system. It has two parts: **jobs** (the configuration +
 - For each log it derives `message` and `level`, then calls `addAnomaly`, mapping severity: `level === 'critical'` → **HIGH**, otherwise → **MEDIUM**.
 - This is the endpoint the `dummy-log-generator` (via Fluent Bit) posts to.
 
-### 2.8 Ticketing (`src/ticketing/`) — event-driven, provider stubbed
+### 2.8 Ticketing (`src/ticketing/`) — event-driven, internal provider live
 
 - **`TicketingService`** subscribes to `AnomalyCreatedEvent` (`@OnEvent`). On each event it:
   1. Loads the job's `ticketingSystemConfig`. If there's no `type`, it does nothing (ticketing is opt-in per job).
   2. Builds a provider via `TicketingProviderFactory`.
-  3. Reloads the anomaly; if it's still `open`, it calls `provider.createTicket(...)`, mapping anomaly severity → ticket severity.
-- **`TicketingProviderFactory`** switches on `config.type`; the only registered provider is `ServiceNowTicketingProvider` (matched by class name). Unknown types throw.
-- **`ServiceNowTicketingProvider`**: `createTicket` returns a **hardcoded fake ticket** (`id: 'random-id'`, status `open`). `getTicket` and `updateTicket` **throw "not implemented"**.
+  3. Reloads the anomaly; if it's still `open`, it calls `provider.createTicket(...)`, mapping anomaly severity → ticket severity, then **persists `{ ticketId, status }` back onto the anomaly** (`ticketInfo`).
+  - The whole handler is wrapped in **try/catch + `Logger`** — it's a fire-and-forget async listener, so a provider error is logged instead of vanishing silently.
+- **`TicketingProviderFactory`** switches on `config.type` (matched by class name); registered providers are `InternalTicketingProvider` and `ServiceNowTicketingProvider`. Unknown types throw.
+- **`InternalTicketingProvider`** persists tickets to our own DB (`Ticket` entity) and the created ticket is linked back onto the anomaly. `ServiceNowTicketingProvider` remains a deferred stub.
+- Read endpoints: **`GET /tickets`**, **`GET /tickets/:id`** (owner-scoped; list is paginated).
 - Domain types (`ticketing.types.ts`): `Ticket`, `TicketCreate`, `TicketStatus`, `TicketSeverity` (`low | medium | high | critical`).
 
 ### 2.9 Shared events (`src/shared/events/`)
@@ -174,10 +176,9 @@ A standalone container that simulates a noisy application and pipes its error lo
 
 These are intentional to call out so the docs don't overstate what works:
 
-- **Authentication** — guard is a hardcoded stub; no token/API-key validation. Everything runs as `default-user-1`.
-- **Ticketing providers** — only ServiceNow exists, and its `createTicket` returns a fake ticket; `getTicket`/`updateTicket` throw. The returned ticket is **not** persisted back onto the anomaly's `ticketInfo` field.
+- **Real ticketing integrations** — the `InternalTicketingProvider` is live and persists tickets, but `ServiceNowTicketingProvider` (and any real Jira/ServiceNow integration) remains a deferred stub the factory simply doesn't route to by default.
 - **Log source integrations** — `zabbix`/`prometheus` types and `config` are stored, but nothing polls or pulls from them. Logs only enter the system through the `/log-analysis/ingest/:jobId` endpoint.
-- **Job lifecycle** — jobs are created as `initialized` and never transitioned to `running`/`completed`/`failed`; nothing acts on `one_time` vs `recurring` (no scheduler).
+- **Job lifecycle** — jobs start `initialized` and flip to `running` on first ingest; `completed`/`failed` and the `one_time`/`recurring` distinction are still inert (no scheduler).
 - **Owner scoping** — log sources and jobs are consistently owner-scoped; some `remote-servers` read/write endpoints are by `id` only.
 - **Users vs. auth identity** — the `User` table is not connected to the `ownerId` used everywhere else.
 
@@ -185,12 +186,14 @@ These are intentional to call out so the docs don't overstate what works:
 
 ## 5. Quick API surface summary
 
-| Area | Base path | Endpoints |
-|---|---|---|
-| Health | `/` | `GET` |
-| Users | `/users` | `POST`, `GET`, `GET /:id`, `PATCH /:id`, `DELETE /:id` |
-| Remote servers | `/remote-servers` | `POST`, `GET`, `GET /:id`, `PATCH /:id`, `DELETE /:id` |
-| Log sources | `/log-sources` | `POST`, `GET`, `GET /:id`, `PATCH /:id`, `DELETE /:id` |
-| Log analysis jobs | `/log-analysis-jobs` | `POST`, `GET`, `GET /:id`, `PATCH /:id`, `DELETE /:id` |
-| Log ingestion | `/log-analysis` | `POST /ingest/:jobId` |
-| API docs | `/api` | Swagger UI |
+| Area | Base path | Endpoints | Auth |
+|---|---|---|---|
+| Health | `/` | `GET` | public |
+| Users | `/users` | `POST`, `GET`, `GET /:id`, `PATCH /:id`, `DELETE /:id` | operator |
+| Remote servers | `/remote-servers` | `POST`, `GET`, `GET /:id`, `PATCH /:id`, `DELETE /:id` | operator |
+| Log sources | `/log-sources` | `POST`, `GET`, `GET /:id`, `PATCH /:id`, `DELETE /:id` | operator |
+| Log analysis jobs | `/log-analysis-jobs` | `POST`, `GET`, `GET /:id`, `PATCH /:id`, `DELETE /:id` | operator |
+| Anomalies | `/log-analysis-jobs/:jobId/anomalies` | `GET` (paginated), `GET /:id`, `PATCH /:id` | operator |
+| Tickets | `/tickets` | `GET` (paginated), `GET /:id` | operator |
+| Log ingestion | `/log-analysis` | `POST /ingest/:jobId` | ingest key |
+| API docs | `/api` | Swagger UI | — |

@@ -77,6 +77,7 @@ const mockRepository = {
 
 const mockAnomalyRepository = {
   findOne: vi.fn(),
+  findAndCount: vi.fn(),
   create: vi.fn(),
   save: vi.fn(),
 };
@@ -308,6 +309,60 @@ describe('LogAnalysisJobsService', () => {
       await expect(service.remove('non-existent', OWNER_ID)).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  describe('markRunning', () => {
+    it('transitions an initialized job to RUNNING and saves it once', async () => {
+      const job = {
+        ...mockJob,
+        status: LogAnalysisJobStatus.INITIALIZED,
+      } as LogAnalysisJob;
+      const saved = { ...job, status: LogAnalysisJobStatus.RUNNING };
+      mockRepository.save.mockResolvedValue(saved);
+
+      const result = await service.markRunning(job);
+
+      expect(job.status).toBe(LogAnalysisJobStatus.RUNNING);
+      expect(mockRepository.save).toHaveBeenCalledTimes(1);
+      expect(mockRepository.save).toHaveBeenCalledWith(job);
+      expect(result).toEqual(saved);
+    });
+
+    it('is a no-op (no write) when the job is already RUNNING', async () => {
+      const job = {
+        ...mockJob,
+        status: LogAnalysisJobStatus.RUNNING,
+      } as LogAnalysisJob;
+
+      const result = await service.markRunning(job);
+
+      expect(mockRepository.save).not.toHaveBeenCalled();
+      expect(result).toBe(job);
+    });
+  });
+
+  describe('listAnomalies', () => {
+    it('returns a paginated envelope from findAndCount', async () => {
+      const anomalies = [{ id: 'anomaly-1' }, { id: 'anomaly-2' }] as Anomaly[];
+      mockAnomalyRepository.findAndCount.mockResolvedValue([anomalies, 5]);
+
+      const result = await service.listAnomalies('uuid-1', OWNER_ID, {
+        page: 2,
+        limit: 2,
+      });
+
+      expect(mockAnomalyRepository.findAndCount).toHaveBeenCalledWith({
+        where: { logAnalysisJob: { id: 'uuid-1', ownerId: OWNER_ID } },
+        order: { id: 'ASC' },
+        skip: 2,
+        take: 2,
+      });
+      expect(result.data).toEqual(anomalies);
+      expect(result.total).toBe(5);
+      expect(result.page).toBe(2);
+      expect(result.limit).toBe(2);
+      expect(result.totalPages).toBe(3);
     });
   });
 

@@ -16,6 +16,8 @@ import {
 } from './entities/log-analysis-job.entity';
 import { EventEmitter2 as EventEmitter } from '@nestjs/event-emitter';
 import { AnomalyCreatedEvent } from '@/shared/events/anomaly.event';
+import { paginate, PaginatedResult } from '@/shared/dto/paginated-result';
+import { PaginationQueryDto } from '@/shared/dto/pagination-query.dto';
 
 @Injectable()
 export class LogAnalysisJobsService {
@@ -98,12 +100,23 @@ export class LogAnalysisJobsService {
     const logAnalysisJob = await this.getById(id, ownerId);
     return this.repo.save({ ...logAnalysisJob, ...updateLogAnalysisJobDto });
   }
-
+  /**
+   * Transition a job to RUNNING the first time it does real work (ingest).
+   * Idempotent: a no-op once the job is already running, so repeated ingests
+   * don't issue redundant writes. The only lifecycle signal we have without a
+   * scheduler (see MVP_PLAN.md M2.1).
+   */
   async remove(id: string, ownerId: string) {
     await this.getById(id, ownerId);
     return this.repo.delete({ id, ownerId });
   }
-
+  async markRunning(job: LogAnalysisJob) {
+    if (job.status === LogAnalysisJobStatus.RUNNING) {
+      return job;
+    }
+    job.status = LogAnalysisJobStatus.RUNNING;
+    return this.repo.save(job);
+  }
   async addAnomaly(
     job: LogAnalysisJob,
     {
@@ -142,10 +155,18 @@ export class LogAnalysisJobsService {
     );
   }
 
-  listAnomalies(jobId: string, ownerId: string) {
-    return this.anomalyRepo.find({
+  async listAnomalies(
+    jobId: string,
+    ownerId: string,
+    { page, limit }: PaginationQueryDto,
+  ): Promise<PaginatedResult<Anomaly>> {
+    const [data, total] = await this.anomalyRepo.findAndCount({
       where: { logAnalysisJob: { id: jobId, ownerId } },
+      order: { id: 'ASC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
+    return paginate(data, total, { page, limit });
   }
 
   getAnomalyForJob(jobId: string, anomalyId: string, ownerId: string) {

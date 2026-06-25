@@ -17,6 +17,8 @@ export class LogAnalysisService {
       throw new NotFoundException('Job not found');
     }
 
+    await this.logAnalysisJobService.markRunning(job);
+
     for (const log of logs) {
       const message = log['message'] || 'Untitled Log Message';
       const level = log['level'] || 'error';

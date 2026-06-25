@@ -1,10 +1,12 @@
 import { Body, Controller, HttpCode, Param, Post } from '@nestjs/common';
 import { LogAnalysisService } from './log-analysis.service';
-import { ApiBody } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@/auth/current-user.decorator';
 import type { ICurrentUser } from '@/auth/current-user.interface';
 import { IngestAuth } from '@/auth/auth.decorator';
 
+@ApiTags('log-analysis')
+@ApiBearerAuth() // uses INGEST_KEY, not the operator API_KEY
 @Controller('log-analysis')
 export class LogAnalysisController {
   constructor(private readonly logAnalysisService: LogAnalysisService) {}

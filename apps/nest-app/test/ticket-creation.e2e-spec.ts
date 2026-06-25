@@ -1,4 +1,4 @@
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
 import { App } from 'supertest/types';
@@ -27,6 +27,10 @@ describe('Ticket Creation (e2e)', () => {
       .compile();
 
     app = moduleFixture.createNestApplication();
+    // Mirror main.ts so pagination DTO defaults (page/limit) and query coercion
+    // apply — without this, `@Query() PaginationQueryDto` stays uncoerced and
+    // `skip`/`take` come through undefined.
+    app.useGlobalPipes(new ValidationPipe({ transform: true }));
     dataSource = moduleFixture.get<DataSource>(DataSource);
     await app.init();
   });
@@ -80,6 +84,13 @@ describe('Ticket Creation (e2e)', () => {
         .send([{ message: 'test-error-log', level: 'error' }])
         .expect(200);
 
+      // first ingest flips the job to `running` (M2.1)
+      const jobAfterIngest = await request(app.getHttpServer())
+        .get(`/log-analysis-jobs/${jobId}`)
+        .set('Authorization', `Bearer ${API_KEY}`)
+        .expect(200);
+      expect((jobAfterIngest.body as { status: string }).status).toBe('running');
+
       // Ticket creation runs in an async AnomalyCreated event listener that the
       // ingest request does not await, so poll until the ticket is persisted.
       let tickets: Array<{ id: string; title: string; description: string }> =
@@ -90,7 +101,7 @@ describe('Ticket Creation (e2e)', () => {
             .get('/tickets')
             .set('Authorization', `Bearer ${API_KEY}`)
             .expect(200);
-          tickets = res.body;
+          tickets = res.body.data;
           expect(tickets).toHaveLength(1);
         },
         { timeout: 5000 },
@@ -110,7 +121,7 @@ describe('Ticket Creation (e2e)', () => {
           .get(`/log-analysis-jobs/${jobId}/anomalies`)
           .set('Authorization', `Bearer ${API_KEY}`)
           .expect(200)
-      ).body as Array<{ id: string }>;
+      ).body.data as Array<{ id: string }>;
 
       expect(anomalies).toHaveLength(1);
 
@@ -133,7 +144,7 @@ describe('Ticket Creation (e2e)', () => {
             .get('/tickets')
             .set('Authorization', `Bearer ${API_KEY}`)
             .expect(200);
-          expect(res.body).toHaveLength(2); // gate reopened → fresh ticket
+          expect(res.body.data).toHaveLength(2); // gate reopened → fresh ticket
         },
         { timeout: 5000 },
       );
