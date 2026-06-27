@@ -4,6 +4,32 @@ const winston = require('winston');
 const app = express();
 const PORT = process.env.PORT || 3100;
 
+// --- In-memory log ring buffer (last 200 entries) ---
+const LOG_BUFFER_SIZE = 200;
+const logBuffer = [];
+let logSeq = 0;
+
+function pushToBuffer(entry) {
+  if (logBuffer.length >= LOG_BUFFER_SIZE) logBuffer.shift();
+  logBuffer.push({ seq: ++logSeq, ...entry });
+}
+
+// Custom winston transport that writes to the in-memory buffer
+class BufferTransport extends winston.transports.Stream {
+  constructor() {
+    const { Writable } = require('stream');
+    const writable = new Writable({
+      write(chunk, _enc, cb) { cb(); } // no-op, we override log()
+    });
+    super({ stream: writable });
+  }
+  log(info, callback) {
+    const { timestamp, level, message, ...meta } = info;
+    pushToBuffer({ timestamp: timestamp || new Date().toISOString(), level, message, ...meta });
+    callback();
+  }
+}
+
 // --- Winston logger ---
 const logger = winston.createLogger({
   level: 'debug',
@@ -25,6 +51,7 @@ const logger = winston.createLogger({
     }),
     new winston.transports.File({ filename: 'logs/combined.log', maxsize: 5242880, maxFiles: 5 }),
     new winston.transports.File({ filename: 'logs/error.log', level: 'error', maxsize: 5242880, maxFiles: 5 }),
+    new BufferTransport(),
   ],
 });
 
@@ -189,6 +216,22 @@ function stopErrorGeneration() {
 
 // --- Express ---
 app.use(express.json());
+
+app.use((_req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  next();
+});
+
+app.options('*', (_req, res) => res.sendStatus(204));
+
+// 0. Recent logs — returns entries with seq > ?since (for polling)
+app.get('/logs/recent', (req, res) => {
+  const since = parseInt(req.query.since || '0', 10);
+  const entries = since ? logBuffer.filter(e => e.seq > since) : logBuffer.slice(-50);
+  res.json({ logs: entries, latest: logSeq });
+});
 
 // 1. Status
 app.get('/status', (_req, res) => {

@@ -13,8 +13,10 @@ export class TicketingProviderFactory {
 
   create(config: Record<string, any>) {
     switch (config.type) {
+      case 'internal':
       case InternalTicketingProvider.name:
         return new InternalTicketingProvider(config, this.ticketRepo);
+      case 'servicenow':
       case ServiceNowTicketingProvider.name:
         return new ServiceNowTicketingProvider(config);
       default:
