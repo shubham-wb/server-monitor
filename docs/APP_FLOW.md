@@ -7,28 +7,29 @@ How data moves through the system, end to end: from a log being produced, to an 
 ## 1. The big picture
 
 ```
-┌──────────────────────────┐         ┌───────────────────────────────────────────┐
-│   dummy-log-generator     │         │                 nest-app                    │
-│                           │         │                                             │
-│  Express + Winston        │         │   POST /log-analysis/ingest/:jobId          │
-│   writes JSON logs ──────►│  logs/  │            │                                │
-│                           │  *.log  │            ▼                                │
-│  Fluent Bit               │         │   LogAnalysisService.ingestLogs()           │
-│   tail → grep(error|crit) │ ─HTTP─► │            │                                │
-│   → HTTP POST             │         │            ▼                                │
-└──────────────────────────┘         │   LogAnalysisJobsService.addAnomaly()       │
-                                      │       │  (dedupe: skip if open anomaly)     │
-                                      │       ▼                                     │
-                                      │   emit AnomalyCreatedEvent ──┐              │
-                                      │                              ▼              │
-                                      │              TicketingService.@OnEvent      │
-                                      │                              │              │
-                                      │                              ▼              │
-                                      │         TicketingProviderFactory.create()   │
-                                      │                              │              │
-                                      │                              ▼              │
-                                      │            provider.createTicket()  (stub)  │
-                                      └───────────────────────────────────────────┘
+┌──────────────────────────┐         ┌───────────────────────────────────────────────┐
+│   dummy-log-generator     │         │                   nest-app                      │
+│                           │         │                                                 │
+│  Express + Winston        │         │   POST /log-analysis/ingest/:jobId              │
+│   writes JSON logs ──────►│  logs/  │            │                                    │
+│                           │  *.log  │            ▼                                    │
+│  Fluent Bit               │         │   LogAnalysisService.ingestLogs()               │
+│   tail → grep(error|crit) │ ─HTTP─► │            │  (job flips to "running")          │
+│   Authorization: Bearer   │         │            ▼                                    │
+│   $INGEST_KEY             │         │   LogAnalysisJobsService.addAnomaly()           │
+└──────────────────────────┘         │       │  (dedupe: skip if open anomaly)         │
+                                      │       ▼                                         │
+                                      │   emit AnomalyCreatedEvent ──┐                  │
+                                      │                              ▼                  │
+                                      │              TicketingService.@OnEvent          │
+                                      │                              │                  │
+                                      │                              ▼                  │
+                                      │         TicketingProviderFactory.create()       │
+                                      │                              │                  │
+                                      │                              ▼                  │
+                                      │    InternalTicketingProvider.createTicket()     │
+                                      │      → persists Ticket; sets anomaly.ticketInfo │
+                                      └───────────────────────────────────────────────┘
 ```
 
 Rendered:
@@ -41,15 +42,15 @@ flowchart LR
     end
 
     subgraph api["nest-app"]
-        ingest["POST /log-analysis/ingest/:jobId"] --> svc["LogAnalysisService.ingestLogs()"]
+        ingest["POST /log-analysis/ingest/:jobId"] --> svc["LogAnalysisService.ingestLogs()<br/>(job → running)"]
         svc --> add["LogAnalysisJobsService.addAnomaly()<br/>(dedupe: skip if open anomaly)"]
         add -->|"emit"| evt(["AnomalyCreatedEvent"])
         evt -.->|"@OnEvent"| tkt["TicketingService"]
         tkt --> factory["TicketingProviderFactory.create()"]
-        factory --> provider["provider.createTicket() — stub"]
+        factory --> provider["InternalTicketingProvider.createTicket()<br/>→ persists Ticket + sets anomaly.ticketInfo"]
     end
 
-    fb -->|"HTTP POST"| ingest
+    fb -->|"HTTP POST + Authorization: Bearer $INGEST_KEY"| ingest
 ```
 
 The two halves are decoupled twice over:
@@ -60,7 +61,7 @@ The two halves are decoupled twice over:
 
 ## 2. Setup flow (configuring the system)
 
-Before any logs are processed, an operator configures the resources. Every request passes through the global `AuthGuard`, which (today) attaches the fixed user `default-user-1` as the owner.
+Before any logs are processed, an operator configures the resources. Every management request passes through the global `AuthGuard`, which validates `API_KEY` (via `Authorization: Bearer` or `x-api-key`) and attaches the single fixed operator user (`default-user-1`) as the owner. The ingest endpoint uses a separate `INGEST_KEY`.
 
 ```
 1. POST /remote-servers          → register the host being monitored
@@ -159,18 +160,20 @@ TicketingService.handleAnomalyCreatedEvent()   (@OnEvent)
         │
         ├─ 2. provider = TicketingProviderFactory.create(config)
         │      └─ switch on config.type:
-        │           "ServiceNowTicketingProvider" → new ServiceNowTicketingProvider(config)
-        │           anything else                 → throw "Unsupported provider"
+        │           "InternalTicketingProvider"    → new InternalTicketingProvider(config, ticketRepo)
+        │           "ServiceNowTicketingProvider"  → new ServiceNowTicketingProvider(config)  (stub)
+        │           anything else                  → throw "Unsupported provider"
         │
         ├─ 3. anomaly = getAnomaly(anomalyId, ownerId)
         │      └─ if missing or status !== "open" → STOP
         │
         └─ 4. provider.createTicket({
-                  title, description,
+                  title, description, anomalyId,
                   severity: map(anomaly.severity)   // low/medium/high → ticket severity
               })
-              └─ ServiceNowTicketingProvider returns a STUB ticket today
-                 (id "random-id", status "open"); not persisted back to the anomaly
+              └─ InternalTicketingProvider persists a Ticket row and returns it
+                 → anomaly.ticketInfo = { ticketId, status } (saved back to DB)
+                 → ticket is now visible via GET /tickets
 ```
 
 Ticketing is **opt-in per job**: only jobs created with a `ticketingSystemConfig.type` ever produce tickets.
@@ -218,11 +221,11 @@ sequenceDiagram
     Note over Gen: boot with JOB_ID = J
     Gen->>Gen: generate logs, Fluent Bit filters error/critical
 
-    Gen->>API: POST /log-analysis/ingest/J
-    API->>API: addAnomaly — no open anomaly → create (open)
+    Gen->>API: POST /log-analysis/ingest/J (Authorization: Bearer $INGEST_KEY)
+    API->>API: job → running; addAnomaly — no open anomaly → create (open)
     API-)Tkt: AnomalyCreatedEvent
     Tkt->>Tkt: config.type set? anomaly still open?
-    Tkt->>Tkt: provider.createTicket()
+    Tkt->>Tkt: InternalTicketingProvider.createTicket() → persists Ticket
 
     Gen->>API: more error logs
     API->>API: addAnomaly — open anomaly exists → SKIP
@@ -266,7 +269,7 @@ stateDiagram-v2
 
 > Note: transitions out of `OPEN` (to `in_progress`/`closed`) are not yet automated in the code — the `PATCH /log-analysis-jobs/:id` endpoint and entities support the data, but no flow drives the anomaly status changes today.
 
-**Job status** (`initialized → pending → running → completed/failed`) is currently set to `initialized` on creation and not advanced by any flow yet.
+**Job status** (`initialized → running → completed/failed`): a job starts `initialized` and flips to `running` on its first ingest (idempotent — repeated ingests don't re-write it). `completed`/`failed` and the `one_time`/`recurring` distinction remain inert — no scheduler is wired yet.
 
 ---
 
@@ -277,5 +280,5 @@ stateDiagram-v2
 | Logs → API | Fluent Bit HTTP output | JSON array → `POST /log-analysis/ingest/:jobId` |
 | Ingest → anomaly | direct service call | `{ message, level }` → anomaly `{ title, severity }` |
 | Anomaly → ticketing | in-process event | `AnomalyCreatedEvent { ownerId, jobId, anomalyId }` |
-| Ticketing → external | provider interface | `ITicketingProvider.createTicket()` (ServiceNow stub) |
-| Every request → owner | global `AuthGuard` | injects `default-user-1` (stubbed auth) |
+| Ticketing → internal DB | `InternalTicketingProvider` | persists `Ticket` entity; writes `ticketInfo` back onto anomaly |
+| Every request → owner | global `AuthGuard` | validates `API_KEY` / `INGEST_KEY`; attaches `OPERATOR_USER` |
