@@ -221,14 +221,14 @@ sequenceDiagram
     Note over Gen: boot with JOB_ID = J
     Gen->>Gen: generate logs, Fluent Bit filters error/critical
 
-    Gen->>API: POST /log-analysis/ingest/J (Authorization: Bearer $INGEST_KEY)
-    API->>API: job → running; addAnomaly — no open anomaly → create (open)
+    Gen->>API: POST /log-analysis/ingest/J (Authorization: Bearer INGEST_KEY)
+    API->>API: job=running, addAnomaly - no open anomaly - create(open)
     API-)Tkt: AnomalyCreatedEvent
     Tkt->>Tkt: config.type set? anomaly still open?
-    Tkt->>Tkt: InternalTicketingProvider.createTicket() → persists Ticket
+    Tkt->>Tkt: InternalTicketingProvider.createTicket() - persists Ticket
 
     Gen->>API: more error logs
-    API->>API: addAnomaly — open anomaly exists → SKIP
+    API->>API: addAnomaly - open anomaly exists - SKIP
     Note over API: no duplicate ticket
 ```
 
