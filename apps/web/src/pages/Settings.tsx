@@ -11,6 +11,7 @@ import { toast } from '@/hooks/use-toast'
 export function Settings() {
   const [apiBaseUrl, setApiBaseUrl] = useState('')
   const [apiKey, setApiKey] = useState('')
+  const [ingestKey, setIngestKey] = useState('')
   const [logGenUrl, setLogGenUrl] = useState('')
   const [showKey, setShowKey] = useState(false)
   const [apiStatus, setApiStatus] = useState<'unknown' | 'ok' | 'error'>('unknown')
@@ -18,13 +19,15 @@ export function Settings() {
 
   useEffect(() => {
     setApiBaseUrl(localStorage.getItem('api_base_url') || 'http://localhost:3000')
-    setApiKey(localStorage.getItem('api_key') || '')
+    setApiKey(localStorage.getItem('api_key') || 'dev-operator-key')
+    setIngestKey(localStorage.getItem('ingest_key') || 'dev-ingest-key')
     setLogGenUrl(localStorage.getItem('log_gen_url') || 'http://localhost:3100')
   }, [])
 
   const save = () => {
     localStorage.setItem('api_base_url', apiBaseUrl)
     localStorage.setItem('api_key', apiKey)
+    localStorage.setItem('ingest_key', ingestKey)
     localStorage.setItem('log_gen_url', logGenUrl)
     toast({ title: 'Settings saved. Refresh to apply.' })
   }
@@ -102,6 +105,18 @@ export function Settings() {
             </div>
             <p className="text-xs text-gray-600">
               Set in <code className="bg-white/5 px-1 rounded">apps/nest-app/.env</code> as <code className="bg-white/5 px-1 rounded">API_KEY</code>
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Ingest Key (x-ingest-key)</Label>
+            <Input
+              value={ingestKey}
+              onChange={e => setIngestKey(e.target.value)}
+              placeholder="dev-ingest-key"
+            />
+            <p className="text-xs text-gray-600">
+              Set in <code className="bg-white/5 px-1 rounded">apps/nest-app/.env</code> as <code className="bg-white/5 px-1 rounded">INGEST_KEY</code>
             </p>
           </div>
         </CardContent>
